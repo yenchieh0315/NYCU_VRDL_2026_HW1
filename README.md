@@ -24,7 +24,7 @@ To train the model and generate the `prediction.csv` file, run the following com
 ```bash
 python VRDL_HW1_ResNet152.py
 ```
-If you want to use other ResNet model, choose th other .py file you want.
+If you want to use other ResNet model, choose other .py file you want.
 
 ## Performance Snapshot
 ![Leaderboard](CodeBench_competition.png)
