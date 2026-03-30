@@ -28,7 +28,6 @@ If you want to use other ResNet model, choose other .py file you want.
 
 ## Performance Snapshot
 ![Leaderboard](CodeBench_competition.png)
-*(Please see the snapshot.png in the repository for the CodaBench leaderboard result.)*
 ```
 
 ---

@@ -6,3 +6,4 @@ cv_hw1_data.tar
 .vscode/
 __pycache__/
 *.pdf
+*.docx
