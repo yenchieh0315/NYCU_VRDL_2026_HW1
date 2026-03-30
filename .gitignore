@@ -1,6 +1,5 @@
 data/
 cv_hw1_data.tar
-*.pth
 *.zip
 *.csv
 .vscode/

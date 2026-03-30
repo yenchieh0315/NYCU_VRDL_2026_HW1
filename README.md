@@ -29,7 +29,8 @@ If you want to use other ResNet model, choose other .py file you want.
 ### Inference
 How to run inference.
 ```bash
-python  
+#Make sure the dataset is in ./data/test
+python VRDL_HW1_ResNet101.py --mode test --weights ./best_model_resnet101.pth --data_dir ./data/test
 ```
 
 ## Performance Snapshot
