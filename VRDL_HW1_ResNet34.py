@@ -7,9 +7,6 @@ from torch.utils.data import DataLoader, Dataset
 from torchvision import datasets, transforms, models
 from PIL import Image
 
-# ========================================== #
-# 自訂 Test 資料集 (放在最外面)
-# ========================================== #
 class TestDataset(Dataset):
     def __init__(self, test_dir, transform=None):
         self.test_dir = test_dir
@@ -28,19 +25,16 @@ class TestDataset(Dataset):
             image = self.transform(image)
             
         return image, img_name
-
-# ========================================== #
-# 主程式區塊
-# ========================================== #
+    
 def main():
     BATCH_SIZE = 128
     EPOCHS = 50
-    LEARNING_RATE = 1e-4  # [修改] 微調預訓練模型時，建議把學習率調小一點 (1e-3 改為 1e-4)，避免破壞原本學好的特徵
+    LEARNING_RATE = 1e-4
     NUM_CLASSES = 100
-    DATA_DIR = './data' # 確認這裡的路徑正確
+    DATA_DIR = './data'
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    print(f"目前使用的運算設備: {device}")
+    print(f"Current calculate device: {device}")
 
     train_transform = transforms.Compose([
         transforms.RandomResizedCrop(224),
@@ -64,30 +58,21 @@ def main():
     val_loader = DataLoader(val_dataset, batch_size=BATCH_SIZE, shuffle=False, num_workers=4)
     test_loader = DataLoader(test_dataset, batch_size=BATCH_SIZE, shuffle=False, num_workers=4)
 
-    # ========================================== #
-    # [修改] 模型初始化：使用預訓練權重並修改最後一層
-    # ========================================== #
-    print("載入 ResNet-34 預訓練模型...")
-    # 1. 載入帶有 ImageNet 預訓練權重的 ResNet-34 (DEFAULT 代表使用當前最好的預訓練權重版本)
+    print("Loading ResNet-34 Pre-train model")
+
     model = models.resnet34(weights=models.ResNet34_Weights.DEFAULT)
     
-    # 2. 獲取原先全連接層的輸入特徵維度 (ResNet-34 最後一層輸入為 512 維)
     num_ftrs = model.fc.in_features
     
-    # 3. 替換掉最後一層，改為輸出我們的 100 個類別
     model.fc = nn.Linear(num_ftrs, NUM_CLASSES)
     
-    # 將模型搬移到 GPU
     model = model.to(device)
-    # ========================================== #
 
     criterion = nn.CrossEntropyLoss()
     optimizer = optim.Adam(model.parameters(), lr=LEARNING_RATE)
 
-    # [新增] 紀錄最佳驗證準確率的變數
     best_val_acc = 0.0
 
-    print("開始訓練...")
     for epoch in range(EPOCHS):
         model.train()
         running_loss = 0.0
@@ -139,10 +124,6 @@ def main():
             torch.save(model.state_dict(), 'best_model_resnet34.pth')
             print(f"  >>> 發現更高的驗證準確率 ({best_val_acc:.2f}%)，已儲存模型！")
 
-    # ========================================== #
-    # [修改] 測試前，先載回我們剛剛存的最佳模型
-    # ========================================== #
-    print("\n訓練結束！載入最佳模型進行測試集預測...")
     model.load_state_dict(torch.load('best_model_resnet34.pth'))
     model.eval()
     predictions =[]
@@ -163,11 +144,7 @@ def main():
         writer.writerow(['image_id', 'label']) 
         writer.writerows(predictions)
 
-    print(f"預測完成！最佳驗證準確率為: {best_val_acc:.2f}%，結果已儲存至 {csv_filename}。")
-
-# ==== 程式真正的執行進入點 ====
 if __name__ == '__main__':
-    # 加上 freeze_support() 可以避免某些 Windows 環境下的異常
     import multiprocessing
     multiprocessing.freeze_support()
     

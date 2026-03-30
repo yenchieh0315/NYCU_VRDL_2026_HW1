@@ -7,9 +7,6 @@ from torch.utils.data import DataLoader, Dataset
 from torchvision import datasets, transforms, models
 from PIL import Image
 
-# ========================================== #
-# 自訂 Test 資料集 (放在最外面)
-# ========================================== #
 class TestDataset(Dataset):
     def __init__(self, test_dir, transform=None):
         self.test_dir = test_dir
@@ -29,9 +26,6 @@ class TestDataset(Dataset):
             
         return image, img_name
 
-# ========================================== #
-# 主程式區塊
-# ========================================== #
 def main():
     BATCH_SIZE = 64 
     EPOCHS = 50
@@ -40,7 +34,7 @@ def main():
     DATA_DIR = './data' 
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    print(f"目前使用的運算設備: {device}")
+    print(f"Current calculate device: {device}")
 
     train_transform = transforms.Compose([
         transforms.RandomResizedCrop(224),
@@ -64,10 +58,7 @@ def main():
     val_loader = DataLoader(val_dataset, batch_size=BATCH_SIZE, shuffle=False, num_workers=4)
     test_loader = DataLoader(test_dataset, batch_size=BATCH_SIZE, shuffle=False, num_workers=4)
 
-    # ========================================== #
-    # 模型初始化：ResNet-50 預訓練
-    # ========================================== #
-    print("載入 ResNet-50 預訓練模型...")
+    print("Loading ResNet-34 Pre-train model")
     model = models.resnet50(weights=models.ResNet50_Weights.DEFAULT)
     num_ftrs = model.fc.in_features
     model.fc = nn.Linear(num_ftrs, NUM_CLASSES)
@@ -76,41 +67,24 @@ def main():
     criterion = nn.CrossEntropyLoss()
     optimizer = optim.Adam(model.parameters(), lr=LEARNING_RATE, weight_decay=1e-4)
 
-    # ========================================== #
-    # [修改] 三段式學習率排程：Warm-up -> Hold -> Decay
-    # ========================================== #
-    WARMUP_EPOCHS = 5      # 前 5 輪熱身
-    HOLD_EPOCHS = 25       # 接著 25 輪保持最大速度
-    # 總共 50 輪，所以剩下 20 輪就是衰減期 (Decay)
+    WARMUP_EPOCHS = 5     
+    HOLD_EPOCHS = 25
 
     def lr_lambda(epoch):
         if epoch < WARMUP_EPOCHS:
-            # 階段 1 (Warm-up): 0.2 -> 0.4 -> 0.6 -> 0.8 -> 1.0 (慢慢增加到 1e-4)
             return (epoch + 1) / float(WARMUP_EPOCHS)
         
         elif epoch < (WARMUP_EPOCHS + HOLD_EPOCHS):
-            # 階段 2 (Hold): 維持 1.0 (也就是保持 1e-4)
             return 1.0
             
         else:
             return 0.1
-            # 階段 3 (Decay): 最後 20 輪
-            # 計算在衰減期中的進度 (從 0.0 到 1.0)
-            # decay_epoch = epoch - (WARMUP_EPOCHS + HOLD_EPOCHS)
-            # decay_total = EPOCHS - (WARMUP_EPOCHS + HOLD_EPOCHS) - 1 # 19
-            # decay_progress = decay_epoch / float(decay_total)
-            
-            # 讓比例從 1.0 線性下降到 0.1 (也就是讓 LR 從 1e-4 降到 1e-5)
-            # 公式： 1.0 - (0.9 * 進度)
-            # return 1.0 - (0.9 * decay_progress)
 
-    # 綁定給 Scheduler
     scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer, lr_lambda=lr_lambda)
-    # ========================================== #
 
     best_val_acc = 0.0
 
-    print("開始訓練...")
+    print("Training...")
     for epoch in range(EPOCHS):
         model.train()
         running_loss = 0.0
@@ -150,22 +124,18 @@ def main():
                 
         val_acc = 100 * val_correct / val_total
         
-        # 獲取當前的學習率
         current_lr = scheduler.get_last_lr()[0]
         
         print(f"Epoch [{epoch+1}/{EPOCHS}] LR: {current_lr:.6f} | "
               f"Train Loss: {running_loss/len(train_loader):.4f}, Train Acc: {train_acc:.2f}% | "
               f"Val Loss: {val_loss/len(val_loader):.4f}, Val Acc: {val_acc:.2f}%")
 
-        # 每個 Epoch 結束時更新學習率排程
         scheduler.step()
 
         if val_acc > best_val_acc:
             best_val_acc = val_acc
             torch.save(model.state_dict(), 'best_model_resnet50.pth')
-            print(f"  >>> 發現更高的驗證準確率 ({best_val_acc:.2f}%)，已儲存模型！")
 
-    print("\n訓練結束！載入最佳模型進行測試集預測...")
     model.load_state_dict(torch.load('best_model_resnet50.pth'))
     model.eval()
     predictions =[]
@@ -185,8 +155,6 @@ def main():
         writer = csv.writer(file)
         writer.writerow(['image_id', 'label']) 
         writer.writerows(predictions)
-
-    print(f"預測完成！最佳驗證準確率為: {best_val_acc:.2f}%，結果已儲存至 {csv_filename}。")
 
 if __name__ == '__main__':
     import multiprocessing
